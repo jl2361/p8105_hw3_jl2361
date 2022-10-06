@@ -6,12 +6,25 @@ output: github_document
 ---
 
 ```{r setup, include = FALSE}
-knitr::opts_chunk$set(collapse = TRUE, message = FALSE)
-```
-
-We will first load the necessary libraries.
-```{r load_libraries}
 library(tidyverse)
+
+knitr::opts_chunk$set(collapse = TRUE, message = FALSE)
+
+knitr::opts_chunk$set(
+  fig.width = 6,
+  fig.asp = .6,
+  out.width = "90%"
+)
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
 ```
 
 # Problem 1
@@ -33,11 +46,50 @@ Make a table showing the mean hour of the day at which Pink Lady Apples and Coff
 This problem uses five weeks of accelerometer data collected on a 63 year-old male with BMI 25, who was admitted to the Advanced Cardiac Care Center of Columbia University Medical Center and diagnosed with congestive heart failure (CHF). The data can be downloaded here. In this spreadsheet, variables activity.* are the activity counts for each minute of a 24-hour day starting at midnight.
 
 Load, tidy, and otherwise wrangle the data. Your final dataset should include all originally observed variables and values; have useful variable names; include a weekday vs weekend variable; and encode data with reasonable variable classes. Describe the resulting dataset (e.g. what variables exist, how many observations, etc).
-Traditional analyses of accelerometer data focus on the total activity over the day. Using your tidied dataset, aggregate across minutes to create a total activity variable for each day, and create a table showing these totals. Are any trends apparent?
-Accelerometer data allows the inspection activity over the course of the day. Make a single-panel plot that shows the 24-hour activity time courses for each day and use color to indicate day of the week. Describe in words any patterns or conclusions you can make based on this graph.
-
 ```{r}
-accel_df = read_csv('data/accel_data.csv')
+accel_df = read_csv('data/accel_data.csv') %>% 
+  janitor::clean_names() %>%
+  mutate(
+    day_type = if_else(day == "Saturday", "weekend", if_else(day == "Sunday", "weekend", "weekday"))) %>%
+      select(week, day_id, day, day_type, everything()) %>%
+  group_by(week, day_id) %>%
+  pivot_longer(
+    activity_1:activity_1440,
+    names_to = "min", 
+    names_prefix = "activity_",
+    values_to = "activity_counts"
+  ) %>%
+  mutate(
+    min = as.numeric(min),
+    activity_counts = round(activity_counts, digits = 0)
+  )
+
+head(accel_df)
+```
+
+Traditional analyses of accelerometer data focus on the total activity over the day. Using your tidied dataset, aggregate across minutes to create a total activity variable for each day, and create a table showing these totals. Are any trends apparent?
+```{r}
+accel_df %>%
+  group_by(week, day_id, day) %>%
+  summarize(
+    total_daily_activity = sum(activity_counts)
+  ) %>%
+knitr::kable()
+```
+
+Accelerometer data allows the inspection activity over the course of the day. Make a single-panel plot that shows the 24-hour activity time courses for each day and use color to indicate day of the week. Describe in words any patterns or conclusions you can make based on this graph.
+```{r}
+accel_df %>%
+  ggplot(
+    aes(x = min, y = activity_counts, color = day)) +
+      geom_point(alpha = .5) +
+  labs(title = "Daily Activity Graph",
+       x = "Hour (military time)",
+       y = "Activity Counts") +
+  scale_x_continuous(
+    breaks = c(0, 180, 360, 540, 720, 900, 1080, 1260, 1440),
+    labels = c("00:00", "03:00", "06:00", "09:00", "12:00", "15:00", "18:00", "21:00", "24:00")
+  ) 
 ```
 
 # Problem 3 
