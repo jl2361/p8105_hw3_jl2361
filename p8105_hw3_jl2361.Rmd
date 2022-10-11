@@ -5,12 +5,14 @@ date: '`r format(Sys.time(), "%Y-%m-%d")`'
 output: github_document
 ---
 
-```{r setup, include = FALSE}
+```{r setup, include = FALSE, message = FALSE, warning = FALSE}
 library(tidyverse)
-
-knitr::opts_chunk$set(collapse = TRUE, message = FALSE)
+library(ggplot2)
+library(patchwork)
 
 knitr::opts_chunk$set(
+echo = TRUE,
+warning = FALSE,
   fig.width = 6,
   fig.asp = .6,
   out.width = "90%"
@@ -52,7 +54,6 @@ accel_df = read_csv('data/accel_data.csv') %>%
   mutate(
     day_type = if_else(day == "Saturday", "weekend", if_else(day == "Sunday", "weekend", "weekday"))) %>%
       select(week, day_id, day, day_type, everything()) %>%
-  group_by(week, day_id) %>%
   pivot_longer(
     activity_1:activity_1440,
     names_to = "min", 
@@ -70,7 +71,7 @@ head(accel_df)
 Traditional analyses of accelerometer data focus on the total activity over the day. Using your tidied dataset, aggregate across minutes to create a total activity variable for each day, and create a table showing these totals. Are any trends apparent?
 ```{r}
 accel_df %>%
-  group_by(week, day_id, day) %>%
+  group_by(week, day) %>%
   summarize(
     total_daily_activity = sum(activity_counts)
   ) %>%
@@ -96,12 +97,109 @@ accel_df %>%
 We load the NY NOAA data from the p8105.datasets package using:
 ```{r}
 library(p8105.datasets)
-data("ny_noaa")
+data("ny_noaa") 
 ```
 
 The goal is to do some exploration of this dataset. To that end, write a short description of the dataset, noting the size and structure of the data, describing some key variables, and indicating the extent to which missing data is an issue. Then, do or answer the following (commenting on the results of each):
 
 Do some data cleaning. Create separate variables for year, month, and day. Ensure observations for temperature, precipitation, and snowfall are given in reasonable units. For snowfall, what are the most commonly observed values? Why?
+```{r}
+noaa_df = ny_noaa %>%
+  janitor::clean_names() %>%
+  separate(col = date, into = c('year', 'month', 'day'), sep = "-") %>%
+  mutate(
+    tmax = as.numeric(tmax),
+    tmin = as.numeric(tmin),
+    year = as.numeric(year),
+    month = as.numeric(month),
+    day = as.numeric(day)) %>%
+  mutate(
+    tmax = tmax/10,
+    tmin = tmin/10,
+    prcp = prcp/10
+  )
+
+head(noaa_df)
+summary(noaa_df)
+```
+
+The statistical software R does not have a built-in function to calculate the mode of a dataset, but we can use the following function to calculate the mode:
+```{r}
+find_mode <- function(x) {
+  u <- unique(x)
+  tab <- tabulate(match(x, u))
+  u[tab == max(tab)]
+}
+
+noaa_df_omit =
+  noaa_df %>%
+  drop_na(snow)
+
+find_mode(pull(noaa_df_omit, snow))
+```
+
 Make a two-panel plot showing the average max temperature in January and in July in each station across years. Is there any observable / interpretable structure? Any outliers?
+
+```{r}
+january_averagetmax = 
+  noaa_df %>%
+  group_by(month, id) %>%
+  drop_na(tmax) %>%
+  summarize(
+    average_tmax = mean(tmax)) %>% 
+  filter(month == "1") %>%
+ggplot( 
+  aes(x = id, y = average_tmax, color = id)) +
+  geom_point(alpha = .5) +
+  labs(
+    title = "January Average TMax",
+    y = "Temperature (degrees C)") +
+  theme(legend.position = "none",
+        axis.ticks.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.title.x = element_blank())
+
+july_averagetmax = 
+  noaa_df %>%
+  group_by(month, id) %>%
+  drop_na(tmax) %>%
+  summarize(
+    average_tmax = mean(tmax)) %>% 
+  filter(month == "7") %>%
+ggplot( 
+  aes(x = id, y = average_tmax, color = id)) +
+  geom_point(alpha = .5) +
+  labs(
+    title = "July Average TMax",
+    caption = "Data from the rnoaa package. Each point represents a unique NY weather station.") +
+  theme(legend.position = "none",
+  axis.ticks.x = element_blank(),
+  axis.text.x = element_blank(),
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank())
+
+january_averagetmax + july_averagetmax
+```
+
 Make a two-panel plot showing (i) tmax vs tmin for the full dataset (note that a scatterplot may not be the best option); and (ii) make a plot showing the distribution of snowfall values greater than 0 and less than 100 separately by year.
+
+```{r}
+tmax_tmin = 
+  noaa_df %>%
+  drop_na(c(tmax, tmin)) %>%
+  ggplot(
+    aes(x = tmax, y = tmin)) + 
+  geom_hex()
+ 
+snowfall = 
+  noaa_df %>%
+  filter(snow > 0, snow < 100) %>%
+  ggplot(
+    aes(x = snow, group = year, color = year)) +
+      geom_density() +
+  labs(x = "Snowfall (mm)",
+       y = "Density")
+
+tmax_tmin + snowfall
+```
 
