@@ -156,8 +156,8 @@ To briefly summarize, there are `r nrow(noaa_df)` rows / observations and `r nco
 * `prcp`: precipitation in tenths of mm (integer variable) 
 * `snow`: snowfall in mm (integer variable)  
 * `snwd`: snow depth in mm (integer variable)
-* `tmax`: maximum temperature in tenths of degrees C (character variable, which will need to be converted to a numerical variable)
-* `tmin`: minimum temperature in tenths of degrees C (character variable, which will need to converted to a numerical variable)
+* `tmax`: maximum temperature in tenths of degrees C (character variable, which will need to be converted to a numeric variable)
+* `tmin`: minimum temperature in tenths of degrees C (character variable, which will need to converted to a numeric variable)
 
 Using the `summary` function, we notice that there are a lot of missing data in this dataset, particularly for the following variables: `prcp`, `snow`, `snwd`. We cannot meaningfully comment on `tmin` and `tmax` in the current state since they are assigned as character variables in the original dataset, but a glance at the data with the `head` function suggests that missing data is an issue with these variables too.
 ```{r}
@@ -166,7 +166,7 @@ head(noaa_df)
 ```
 
 ## Data cleaning
-We clean variable names; create separate variables for year, month, and day and convert these to numeric variables; convert `tmax` and `tmin` to numeric variables. In terms of units, we divide the temperature values by 10 to convert units from tenths of degrees C to degrees C and divide the precipitation values by 10 to convert units from tenths of mm to mm. 
+We clean variable names; create separate variables for year, month, and day and convert these to numeric variables; convert `tmax` and `tmin` to numeric variables. In terms of units, we divide the temperature values by 10 to convert units from tenths of degrees C to degrees C and divide the precipitation values by 10 to convert units from tenths of mm to mm so that the values are more interpretable. 
 ```{r}
 noaa_df = 
   noaa_df %>%
@@ -185,7 +185,7 @@ noaa_df =
   )
 ```
 
-To find the most commonly observed value or mode for snowfall, we create a function to calculate the mode since R does not have a corresponding built-in function. We then create another dataset entitled `noaa_df_omit` where the missing data for snowfall are dropped, then find the mode, which seems to be 0 mm. From this result, we gather that mm may not be the most appropriate unit for snowfall (it seems too small!) and add a new variable entitled `snow_cm` to convert mm into cm.
+To find the most commonly observed value or mode for snowfall, we create a function to calculate the mode since R does not have a corresponding built-in function. We then create another dataset entitled `noaa_df_omit` where the missing data for snowfall are dropped, then find the mode, which seems to be 0 mm. From this result, we gather that mm may not be the most appropriate unit for snowfall (it seems too small!) and add a new variable entitled `snow_cm` to convert mm into cm, which is a more common unit to report snowfall.
 ```{r}
 find_mode <- function(x) {
   u <- unique(x)
@@ -212,7 +212,7 @@ In terms of outliers, 1994 and 2004 appear to have been unusually cold in Januar
 ```{r}
 january_july_averagetmax = 
   noaa_df %>%
-  filter(month == "1" | month == "7") %>%
+  filter(month %in% c(1, 7)) %>%
   group_by(year, month, id) %>%
   summarize(
     average_tmax = mean(tmax, na.rm = TRUE)) %>% 
